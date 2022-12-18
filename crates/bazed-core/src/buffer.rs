@@ -72,14 +72,17 @@ pub struct Buffer {
 }
 
 impl Buffer {
-    pub fn open_ephemeral() -> Self {
-        let rope = Rope::from(String::new());
+    pub fn new_from_string(s: String) -> Self {
+        let rope = Rope::from(s);
         Self {
             undo_group_id: 1,
             engine: Engine::new(rope.clone()),
             text: rope,
             marks: BufferMarks::default(),
         }
+    }
+    pub fn new_empty() -> Self {
+        Self::new_from_string(String::new())
     }
 
     pub fn content_to_string(&self) -> String {
@@ -252,7 +255,7 @@ mod test {
     use super::*;
     #[test]
     fn test_insert() {
-        let mut b = Buffer::open_ephemeral();
+        let mut b = Buffer::new_empty();
         b.insert_at_carets("hel");
         b.insert_at_carets("lo");
         assert_eq!("hello", b.content_to_string());
@@ -260,7 +263,7 @@ mod test {
 
     #[test]
     fn test_backspace() {
-        let mut b = Buffer::open_ephemeral();
+        let mut b = Buffer::new_empty();
         b.insert_at_carets("a");
         assert_eq!("a", b.content_to_string());
         b.delete_backward_at_carets();
@@ -271,7 +274,7 @@ mod test {
 
     #[test]
     fn test_move_caret_into_shorter_line() {
-        let mut b = Buffer::open_ephemeral();
+        let mut b = Buffer::new_empty();
         b.insert_at_carets("hi\nworld");
         b.apply_movement_op(MovementOp::Up);
         b.insert_at_carets(",");

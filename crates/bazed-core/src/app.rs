@@ -32,7 +32,7 @@ impl App {
         self.event_send
             .send_rpc_notification(ToFrontend::Open {
                 id: id.0,
-                title: document.title.clone(),
+                path: document.path.clone(),
                 text: document.buffer.content_to_string(),
             })
             .await?;
