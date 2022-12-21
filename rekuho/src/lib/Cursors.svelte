@@ -12,9 +12,12 @@
   export type Cursor = { pos: Vector2 }
   export let cursors: Writable<Cursor[]> = writable([{ id: 0, pos: [0, 0] }])
 
-  export const cursorUpdate = (id: number, pos: [number | null, number | null]): void => {
+  export const cursorUpdate = (
+    id: number,
+    pos: (p: Vector2) => [number | null, number | null],
+  ): void => {
     cursors.update((cursors) => {
-      cursors[0] = { pos: vectorMerge(cursors[0].pos, pos) }
+      cursors[0] = { pos: vectorMerge(cursors[0].pos, pos(cursors[0].pos)) }
       return cursors
     })
   }
