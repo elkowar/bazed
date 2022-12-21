@@ -9,38 +9,48 @@
   import { writable } from "svelte/store"
 
   import type { Vector2 } from "./LinearAlgebra"
+  import { arrayUpdate, stringSplice } from "./Common"
+
+  export type Line = string
 
   export const lines: Writable<string[]> = writable([]) // contains all cached lines
 
   export const isAlpha = (code: number): boolean =>
     (code > 47 && code < 58) || (code > 64 && code < 91) || (code > 96 && code < 123)
 
-  // Insert `text` into `self` at `offset`
-  // ```ts
-  // splice("foo", 1, "here") => "fhereoo"
-  // ```
-  const splice = (self: string, offset: number, text: string): string => {
-    let calculatedOffset = offset < 0 ? self.length + offset : offset
-    return self.substring(0, calculatedOffset) + text + self.substring(calculatedOffset)
-  }
+  // insert
+  export const atInsert = (text: string, [x, y]: Vector2): void =>
+    lines.update((lines) => {
+      arrayUpdate(lines, y, (line) => stringSplice(line, x, text))
+      return lines
+    })
 
-  // Updates the element at `index` with `f` in `list`
-  // ```ts
-  // updateNth([1, 2, 3, 4], 3, n => n * n) => [1, 2, 9, 4]
-  // ```
-  const updateNth = <T>(list: T[], index: number, f: (element: T) => T): T[] => {
-    list[index] = f(list[index])
-    return list
-  }
+  export const atRemove = ([x, y]: Vector2): void =>
+    lines.update((lines) => {
+      arrayUpdate(lines, y, (line) => line.substring(0, x) + line.substring(x + 1))
+      return lines
+    })
 
-  export const insertAt = (text: string, [x, y]: Vector2) =>
-    lines.update((lines: string[]) => updateNth(lines, y, (line) => splice(line, x, text)))
+  export const insertLine = (i: number, line: string): void =>
+    lines.update((lines) => {
+      lines.splice(i, 0, line)
+      return lines
+    })
+
+  export const longestLine = (text: string[]): Line =>
+    text.reduce((a, b) => (a.length < b.length ? b : a))
 </script>
 
 <script lang="ts">
   import type { Theme } from "./Theme"
   export let theme: Theme
   export let line_height: number
+
+  export let height: number
+  export let width: number
+
+  $: height = $lines.length * line_height
+  $: width = $lines ? longestLine($lines).length : 1
 </script>
 
 <div class="lines-container">
@@ -65,9 +75,13 @@
 </div>
 
 <style>
-  .line-container {
-    width: 100%;
+  .lines-container {
     position: absolute;
+  }
+
+  .line-container {
+    position: absolute;
+    width: 100%;
     cursor: text;
   }
 
