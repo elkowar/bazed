@@ -6,10 +6,10 @@
 
 <script lang="ts">
   import { example as exampleTheme } from "./Theme"
-  import { initSession, Session, type Key, type KeyInput } from "./Rpc"
+  import { initSession, Session, type KeyInput } from "./Rpc"
 
   import Portion from "./Portion.svelte"
-  import { state } from "./Core"
+  import { state, type CaretPosition } from "./Core"
 
   export let width: number = 500
   export let height: number = 500
@@ -26,6 +26,13 @@
     }
     session.handleKeyPressed(input)
   }
+
+  function onMouseClicked(pos: CaretPosition) {
+    if (!session) {
+      return
+    }
+    session.handleMouseClicked(pos)
+  }
 </script>
 
 <div
@@ -35,6 +42,7 @@
   <Portion
     bind:theme
     onKeyInput={onKeyboardInput}
+    {onMouseClicked}
     lines={$state.lines}
     {width}
     {height}
