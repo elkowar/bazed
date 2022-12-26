@@ -2,37 +2,53 @@
   Portion, may be simply the Editor
   This window contains the visible and editable text.
 -->
-
 <script lang="ts">
   import type { Theme } from "./Theme"
-  import LinesView, { lines, isAlpha, atInsert, atRemove, insertLine } from "./LinesView.svelte"
-  import type { Position } from "./Cursors.svelte"
-  import CursorsLayer, { cursors, cursorUpdate, cursorMove } from "./Cursors.svelte"
+  import LinesView from "./LinesView.svelte"
+  import CursorsLayer from "./Cursors.svelte"
   import { measure as fontMeasure } from "./Font"
+  import { state } from "./Core"
+  import type { Vector2 } from "./LinearAlgebra"
+  import type { Key, KeyInput } from "./Rpc"
 
-  export let theme: Theme
   const gutter_width = 50 // maybe should be part of theme, minimum value?
 
+  export let theme: Theme
   export let height: number
   export let width: number
+  export let lines: string[]
+  export let onKeyInput: (k: KeyInput) => void
 
   let view: Element
   let input: HTMLTextAreaElement
   let container: Element
 
-  // TODO: get proper input from backend
-  lines.update((_) => [
-    ...new Array(10).fill(""),
-    ..."funky\nbanana\nt0wn".split("\n"),
-    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    ...new Array(20).fill("a"),
-  ])
+  const emitKeyboardInput = (key: Key) => onKeyInput({ modifiers: [], key })
+
+  /*
+  export const cursorUpdate = (
+    id: number,
+    pos: (p: Vector2) => [number | null, number | null],
+  ): void => {
+    cursors.update((cursors) => {
+      cursors[0] = { pos: vectorMerge(cursors[0].pos, pos(cursors[0].pos)) }
+      return cursors
+    })
+  }
+
+  export const cursorMove = (id: number, movement: Vector2): void => {
+    cursors.update((cursors) => {
+      cursors[0] = { pos: [cursors[id].pos[0] + movement[0], cursors[id].pos[1] + movement[1]] }
+      return cursors
+    })
+  }
+  */
 
   // let portion_start_line: number = 0
 
   // TODO: separate into linear_algebra.ts
   $: view_rect = container && container.getBoundingClientRect()
-  const pxToPortionPosition = ([x, y]: Position): Position => {
+  const pxToPortionPosition = ([x, y]: Vector2): Vector2 => {
     const div = (x: number, y: number): number => Math.floor(x / y)
     const column = div(x - view_rect.x, column_width)
     const line = div(y - view_rect.y, line_height)
@@ -45,9 +61,15 @@
   const column_width: number = font_metrics.width || 0
 
   // TODO: implement selections
-  let selection: Position | null = null
+  let selection: Vector2 | null = null
 
   ////////////////////////////////////////////////////////////////////////////////
+
+  const mouseDown = (ev: MouseEvent) => {
+    input.focus()
+  }
+  /*
+
 
   const mousedown = (ev: MouseEvent) => {
     const current = pxToPortionPosition([ev.pageX, ev.pageY])
@@ -69,6 +91,7 @@
       cursorUpdate(0, (_) => pxToPortionPosition([ev.pageX, ev.pageY]))
     }
   }
+  */
 
   // TODO: handle drag events
   // const dragstart = (ev: DragEvent) => {}
@@ -76,28 +99,38 @@
 
   const keydown = (ev: KeyboardEvent) => {
     // TODO: handle input from keydown events
+    console.log(ev.key)
     if (ev.key.length === 1) {
-      atInsert(ev.key, $cursors[0].pos)
-      cursorMove(0, [1, 0])
+      emitKeyboardInput({ char: ev.key })
     }
 
     switch (ev.key) {
-      case "Enter": {
-        insertLine($cursors[0].pos[1] + 1, "")
-        cursorMove(0, [0, 1])
+      case "Enter":
+        emitKeyboardInput("return")
         break
-      }
-      case "Backspace": {
-        atRemove($cursors[0].pos)
-        cursorMove(0, [-1, 0])
+      case "Backspace":
+        emitKeyboardInput("backspace")
         break
-      }
+      case "ArrowLeft":
+        emitKeyboardInput("left")
+        break
+      case "ArrowRight":
+        emitKeyboardInput("right")
+        break
+      case "ArrowUp":
+        emitKeyboardInput("up")
+        break
+      case "ArrowDown":
+        emitKeyboardInput("down")
+        break
     }
   }
 
+  /*
   const gutter_mousedown = (line: number, ev: MouseEvent) => {
     cursorUpdate(0, (_) => [null, line])
   }
+  */
 
   ////////////////////////////////////////////////////////////////////////////////
 
@@ -123,11 +156,11 @@
     style:width="{gutter_width}px"
     style:height="{height}px"
   >
-    {#each $lines as _, i}
+    {#each lines as _, i}
       <div
         class="gutter-cell"
         on:mousedown|preventDefault={(e) => {
-          gutter_mousedown(i, e)
+          // gutter_mousedown(i, e)
         }}
         style:font-size={theme.font.size}
         style:height="{line_height}px"
@@ -152,9 +185,9 @@
   <div
     bind:this={container}
     class="container"
-    on:mousedown|preventDefault={mousedown}
-    on:mousemove={mousemove}
-    on:mouseup={mouseup}
+    on:mousedown|preventDefault={mouseDown}
+    on:mousemove={() => {}}
+    on:mouseup={() => {}}
     style:background={theme.editor_background}
     style:left="{gutter_width + theme.text_offset}px"
   >
@@ -171,10 +204,12 @@
       bind:theme
       bind:height={line_view_height}
       bind:width={line_view_width}
+      lines={$state.lines}
       {line_height}
     />
     <CursorsLayer
       bind:theme
+      cursors={$state.carets}
       {column_width}
       {line_height}
     />

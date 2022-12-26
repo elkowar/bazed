@@ -6,15 +6,26 @@
 
 <script lang="ts">
   import { example as exampleTheme } from "./Theme"
-  import { websocket } from "./Rpc"
+  import { initSession, Session, type Key, type KeyInput } from "./Rpc"
 
   import Portion from "./Portion.svelte"
+  import { state } from "./Core"
 
   export let width: number = 500
   export let height: number = 500
-
   let theme = exampleTheme
-  websocket()
+
+  let session: Session | null = null
+  initSession().then((x) => {
+    session = x
+  })
+
+  function onKeyboardInput(input: KeyInput) {
+    if (!session) {
+      return
+    }
+    session.handleKeyPressed(input)
+  }
 </script>
 
 <div
@@ -23,6 +34,8 @@
 >
   <Portion
     bind:theme
+    onKeyInput={onKeyboardInput}
+    lines={$state.lines}
     {width}
     {height}
   />
