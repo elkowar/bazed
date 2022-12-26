@@ -7,7 +7,7 @@
   import LinesView from "./LinesView.svelte"
   import CursorsLayer from "./Cursors.svelte"
   import { measure as fontMeasure } from "./Font"
-  import { state } from "./Core"
+  import { state, type CaretPosition } from "./Core"
   import type { Vector2 } from "./LinearAlgebra"
   import type { Key, KeyInput } from "./Rpc"
 
@@ -18,36 +18,16 @@
   export let width: number
   export let lines: string[]
   export let onKeyInput: (k: KeyInput) => void
+  export let onMouseClicked: (pos: CaretPosition) => void
 
-  let view: Element
   let input: HTMLTextAreaElement
   let container: Element
 
   const emitKeyboardInput = (key: Key) => onKeyInput({ modifiers: [], key })
 
-  /*
-  export const cursorUpdate = (
-    id: number,
-    pos: (p: Vector2) => [number | null, number | null],
-  ): void => {
-    cursors.update((cursors) => {
-      cursors[0] = { pos: vectorMerge(cursors[0].pos, pos(cursors[0].pos)) }
-      return cursors
-    })
-  }
-
-  export const cursorMove = (id: number, movement: Vector2): void => {
-    cursors.update((cursors) => {
-      cursors[0] = { pos: [cursors[id].pos[0] + movement[0], cursors[id].pos[1] + movement[1]] }
-      return cursors
-    })
-  }
-  */
-
-  // let portion_start_line: number = 0
-
   // TODO: separate into linear_algebra.ts
   $: view_rect = container && container.getBoundingClientRect()
+
   const pxToPortionPosition = ([x, y]: Vector2): Vector2 => {
     const div = (x: number, y: number): number => Math.floor(x / y)
     const column = div(x - view_rect.x, column_width)
@@ -60,17 +40,17 @@
   const line_height: number = font_metrics.actualHeight || 0
   const column_width: number = font_metrics.width || 0
 
-  // TODO: implement selections
-  let selection: Vector2 | null = null
-
   ////////////////////////////////////////////////////////////////////////////////
 
   const mouseDown = (ev: MouseEvent) => {
+    const [x, y] = pxToPortionPosition([ev.pageX, ev.pageY])
+    onMouseClicked({ line: y, col: x })
     input.focus()
   }
+
+  // We don't have mouse-based selection in the backend yet, :ree:
+
   /*
-
-
   const mousedown = (ev: MouseEvent) => {
     const current = pxToPortionPosition([ev.pageX, ev.pageY])
     selection = current
@@ -93,12 +73,7 @@
   }
   */
 
-  // TODO: handle drag events
-  // const dragstart = (ev: DragEvent) => {}
-  // const drag = (ev : DragEvent) => {}
-
   const keydown = (ev: KeyboardEvent) => {
-    // TODO: handle input from keydown events
     console.log(ev.key)
     if (ev.key.length === 1) {
       emitKeyboardInput({ char: ev.key })
@@ -126,11 +101,9 @@
     }
   }
 
-  /*
-  const gutter_mousedown = (line: number, ev: MouseEvent) => {
-    cursorUpdate(0, (_) => [null, line])
+  const gutter_mousedown = (line: number, _ev: MouseEvent) => {
+    onMouseClicked({ col: 0, line })
   }
-  */
 
   ////////////////////////////////////////////////////////////////////////////////
 
@@ -144,7 +117,6 @@
 
 <div
   class="view"
-  bind:this={view}
   style:width="{width}px"
   style:height="{height}px"
 >
@@ -160,7 +132,7 @@
       <div
         class="gutter-cell"
         on:mousedown|preventDefault={(e) => {
-          // gutter_mousedown(i, e)
+          gutter_mousedown(i, e)
         }}
         style:font-size={theme.font.size}
         style:height="{line_height}px"
@@ -227,7 +199,7 @@
   >
     <div
       class="scroller"
-      on:mousedown|preventDefault={(e) => {}}
+      on:mousedown|preventDefault={(_) => {}}
       style:height="{theme.scrollbar_width}px"
       style:width="{vertical_scroller_width}px"
       style:background="#FFFFFF"

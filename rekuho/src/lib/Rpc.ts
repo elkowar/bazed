@@ -1,7 +1,7 @@
 import { v4 } from "uuid"
-import { state, updateState, type State } from "./Core"
+import { state, updateState, type CaretPosition, type State } from "./Core"
 
-function ensureExhaustive(_: never) { }
+function ensureExhaustive(_: never) {}
 
 export async function initSession() {
   const ws = new WebSocket("ws://localhost:6969")
@@ -10,7 +10,6 @@ export async function initSession() {
   })
   return new Session(ws)
 }
-
 
 export class Session {
   ws: WebSocket
@@ -21,7 +20,7 @@ export class Session {
     ws.onmessage = (event) => {
       this.onMessageReceived(JSON.parse(event.data))
     }
-    state.subscribe(state => {
+    state.subscribe((state) => {
       this.state = state
     })
   }
@@ -36,27 +35,32 @@ export class Session {
       this.send({ method: "key_pressed", params: { view_id, input } })
     }
   }
-
+  async handleMouseClicked(pos: CaretPosition) {
+    const view_id = this.state.view_id
+    if (view_id) {
+      this.send({ method: "mouse_input", params: { view_id, position: pos } })
+    }
+  }
 
   async onMessageReceived(msg: ToFrontend) {
     console.log("Got message from ws", msg)
     switch (msg.method) {
       case "open_document":
         this.onOpenDocument(msg.params)
-        break;
+        break
       case "view_opened_response":
         this.onViewOpenedResponse(msg.params)
-        break;
+        break
       case "update_view":
         this.onUpdateView(msg.params)
-        break;
+        break
       default:
         ensureExhaustive(msg)
     }
   }
 
   async onUpdateView(params: UpdateView["params"]) {
-    state.update(state => ({
+    state.update((state) => ({
       ...state,
       lines: params.text,
       first_line: params.first_line,
@@ -83,7 +87,6 @@ export class Session {
     updateState("view_id", params.view_id)
   }
 }
-
 
 type Uuid = string
 type RequestId = string
@@ -183,30 +186,29 @@ export type KeyInput = {
 export type Modifier = "ctrl" | "alt" | "shift" | "win"
 export type Key = { char: string } | NonCharKey
 export type NonCharKey =
-  "f1" |
-  "f2" |
-  "f3" |
-  "f4" |
-  "f5" |
-  "f6" |
-  "f7" |
-  "f8" |
-  "f9" |
-  "f10" |
-  "f11" |
-  "f12" |
-  "backspace" |
-  "return" |
-  "tab" |
-  "home" |
-  "end" |
-  "insert" |
-  "delete" |
-  "page_up" |
-  "page_down" |
-  "escape" |
-  "left" |
-  "right" |
-  "up" |
-  "down"
-
+  | "f1"
+  | "f2"
+  | "f3"
+  | "f4"
+  | "f5"
+  | "f6"
+  | "f7"
+  | "f8"
+  | "f9"
+  | "f10"
+  | "f11"
+  | "f12"
+  | "backspace"
+  | "return"
+  | "tab"
+  | "home"
+  | "end"
+  | "insert"
+  | "delete"
+  | "page_up"
+  | "page_down"
+  | "escape"
+  | "left"
+  | "right"
+  | "up"
+  | "down"
