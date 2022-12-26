@@ -1,78 +1,89 @@
-export const websocket = async () => {
-  try {
-    const ws = new WebSocket("ws://localhost:6969")
-    const cmd = {
-      method: "key_pressed",
-      params: {
-        key: "X",
-        modifiers: [],
-      },
+import { v4 } from "uuid"
+import { state, updateState, type State } from "./Core"
+
+function ensureExhaustive(_: never) { }
+
+export async function initSession() {
+  const ws = new WebSocket("ws://localhost:6969")
+  await new Promise((resolve) => {
+    ws.onopen = (event) => resolve(event)
+  })
+  return new Session(ws)
+}
+
+
+export class Session {
+  ws: WebSocket
+  state: State = {} as any
+
+  constructor(ws: WebSocket) {
+    this.ws = ws
+    ws.onmessage = (event) => {
+      this.onMessageReceived(JSON.parse(event.data))
     }
-
-    const _ = await new Promise((resolve) => {
-      ws.onopen = (event) => resolve(event)
+    state.subscribe(state => {
+      this.state = state
     })
+  }
 
-    const openDocumentEvt: OpenDocument = await new Promise((resolve) => {
-      ws.onmessage = (event) => resolve(JSON.parse(event.data))
-    })
+  send(msg: ToBackend) {
+    this.ws.send(JSON.stringify(msg))
+  }
 
-    console.log(openDocumentEvt)
+  async handleKeyPressed(input: KeyInput) {
+    const view_id = this.state.view_id
+    if (view_id) {
+      this.send({ method: "key_pressed", params: { view_id, input } })
+    }
+  }
 
-    const openViewMsg: ViewOpened = {
+
+  async onMessageReceived(msg: ToFrontend) {
+    console.log("Got message from ws", msg)
+    switch (msg.method) {
+      case "open_document":
+        this.onOpenDocument(msg.params)
+        break;
+      case "view_opened_response":
+        this.onViewOpenedResponse(msg.params)
+        break;
+      case "update_view":
+        this.onUpdateView(msg.params)
+        break;
+      default:
+        ensureExhaustive(msg)
+    }
+  }
+
+  async onUpdateView(params: UpdateView["params"]) {
+    state.update(state => ({
+      ...state,
+      lines: params.text,
+      first_line: params.first_line,
+      carets: params.carets,
+      height: params.height,
+    }))
+  }
+
+  async onOpenDocument(params: OpenDocument["params"]) {
+    updateState("document_id", params.document_id)
+    const msg: ViewOpened = {
       method: "view_opened",
       params: {
-        request_id: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d", // "random" uuid
-        document_id: openDocumentEvt.params.document_id,
+        request_id: v4(),
+        document_id: params.document_id,
         height: 20,
         width: 40,
       },
     }
-    ws.send(JSON.stringify(openViewMsg))
-    // reassigning onmessage constantly is definitely not the strat, this is pain
-    // we need a good abstraction here lmao (as in, we're doing RPC, not random haha let's throw data around the interwebs)
-    const viewOpenedResponse: ViewOpenedResponse = await new Promise((resolve) => {
-      ws.onmessage = (event) => resolve(JSON.parse(event.data))
-    })
+    this.send(msg)
+  }
 
-    console.log(viewOpenedResponse)
-    const poggersViewId = viewOpenedResponse.params.view_id
-    console.log(poggersViewId)
-
-    const handlers: Handlers = {
-      open_document: (params) => {
-        // do stuff in ui
-      },
-      view_opened_response: (params) => {
-        // do stuff in ui
-      },
-      update_view: (params) => {
-        // do stuff in ui
-        console.log("Call some funny callback from the respective widget or store or sth")
-        console.log(params.text)
-      },
-    }
-
-    const helper = (obj: any) => ws.send(JSON.stringify(obj))
-
-    const wsClient = {}
-
-    const _wsClient = {
-      key_pressed: (params: KeyPressed["params"]) => {
-        ws.send(JSON.stringify({ method: "key_pressed", params }))
-      },
-    }
-
-    ws.onmessage = (event) => {
-      const command: ToFrontend = JSON.parse(event.data)
-      handlers[command.method](command.params as any)
-    }
-
-    ws.send(JSON.stringify(cmd))
-  } catch (e) {
-    console.log(e)
+  async onViewOpenedResponse(params: ViewOpenedResponse["params"]) {
+    updateState("view_id", params.view_id)
   }
 }
+
 
 type Uuid = string
 type RequestId = string
@@ -82,8 +93,6 @@ type Position = {
   col: number
 }
 
-type Handlers = { [T in ToFrontend as T["method"]]: (params: T["params"]) => void }
-
 type Message<Method extends string, Params> = {
   method: Method
   params: Params
@@ -91,13 +100,6 @@ type Message<Method extends string, Params> = {
 
 type ToFrontend = OpenDocument | UpdateView | ViewOpenedResponse
 
-const to_backend = <const>[
-  "view_opened",
-  "viewport_changed",
-  "key_pressed",
-  "save_document",
-  "mouse_input",
-]
 type ToBackend = ViewOpened | ViewportChanged | KeyPressed | SaveDocument | MouseInput
 
 type OpenDocument = Message<
@@ -153,7 +155,7 @@ type KeyPressed = Message<
   "key_pressed",
   {
     view_id: Uuid
-    position: Position
+    input: KeyInput
   }
 >
 
@@ -172,3 +174,39 @@ type MouseInput = Message<
     position: Position
   }
 >
+
+export type KeyInput = {
+  modifiers: Array<Modifier>
+  key: Key
+}
+
+export type Modifier = "ctrl" | "alt" | "shift" | "win"
+export type Key = { char: string } | NonCharKey
+export type NonCharKey =
+  "f1" |
+  "f2" |
+  "f3" |
+  "f4" |
+  "f5" |
+  "f6" |
+  "f7" |
+  "f8" |
+  "f9" |
+  "f10" |
+  "f11" |
+  "f12" |
+  "backspace" |
+  "return" |
+  "tab" |
+  "home" |
+  "end" |
+  "insert" |
+  "delete" |
+  "page_up" |
+  "page_down" |
+  "escape" |
+  "left" |
+  "right" |
+  "up" |
+  "down"
+
