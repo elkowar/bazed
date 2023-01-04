@@ -10,12 +10,13 @@ pub struct HandlerId(pub Uuid);
 
 /// Event types uniquely identify the kind of an event.
 /// TODO we'll need decide on some way to namespace these or something.
-#[derive(Debug, Hash, PartialEq, Eq)]
-pub struct EventType(String);
+#[derive(Debug, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct EventKind(String);
 
 /// An event, represented as unstructured json.
 #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Event {
+    kind: EventKind,
     data: serde_json::Value,
 }
 
@@ -32,13 +33,13 @@ impl EventListener {
 }
 
 pub struct EventSystem {
-    event_listeners: HashMap<EventType, HashMap<HandlerId, EventListener>>,
+    event_listeners: HashMap<EventKind, HashMap<HandlerId, EventListener>>,
 }
 
 impl EventSystem {
     pub fn register_event_listener(
         &mut self,
-        typ: EventType,
+        typ: EventKind,
         listener: EventListener,
     ) -> HandlerId {
         let handler_id = HandlerId(Uuid::new_v4());
@@ -56,10 +57,11 @@ impl EventSystem {
         }
     }
 
-    pub fn broadcast_event(&mut self, typ: &EventType, event: &Event) {
-        if let Some(listeners) = self.event_listeners.get_mut(&typ) {
+    #[tracing::instrument(skip(self))]
+    pub fn broadcast_event(&mut self, typ: &EventKind, event: &Event) {
+        if let Some(listeners) = self.event_listeners.get_mut(typ) {
             for listener in listeners.values_mut() {
-                listener.call(&event)
+                listener.call(event)
             }
         }
     }
