@@ -87,6 +87,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "bazed-event-system"
+version = "0.0.0"
+dependencies = [
+ "color-eyre",
+ "derive_more",
+ "futures",
+ "serde",
+ "serde_json",
+ "tap",
+ "thiserror",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "bazed-rpc"
 version = "0.0.0"
 dependencies = [
