@@ -12,5 +12,9 @@ pub mod view;
 mod vim_interface;
 mod word_boundary;
 
+
+pub mod fake_stew;
+pub mod fake_plugin;
+
 #[cfg(test)]
 mod test_util;
